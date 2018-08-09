@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/">
+        <file>resources/loading_spinner.gif</file>
+        <file>resources/connected.png</file>
+        <file>resources/not_connected.png</file>
+    </qresource>
+</RCC>
