@@ -21,6 +21,9 @@ void StreamRecorder::startStream()
 
     m_filename = m_name + "_" + QDateTime::currentDateTime().toString("dd.MM.yyyy_hh.mm.ss") + ".mp4";
 
+    //ffmpeg ... -i "https://sitevideo.com/list.m3u8" -map p:1 -c copy "/home/file/video.ts"
+    //p:5 is 1080
+
     m_process->start("ffmpeg\\bin\\ffmpeg.exe -i " + m_m3u8 + " -c copy recordings\\tmp\\" + m_filename);
     m_process->waitForStarted(-1);
 

@@ -2,7 +2,6 @@
 #define STREAMER_H
 
 #include <QObject>
-#include <QProcess>
 #include <QThread>
 #include <QTimer>
 
@@ -16,52 +15,53 @@ class Streamer : public QObject
     public:
         explicit Streamer(const QString& name, QObject *parent = nullptr);
 
-        bool isAvailable() const;
-        void checkAvailability();
-
         void startStream();
         void stopStream();
+        bool isRecording() const;
 
-        bool isRecordASAP();
         void setRecordASAP(bool status);
+        bool isRecordASAP() const;
 
+        bool isOnline() const;
         QString getName() const;
         QString getM3u8() const;
         QString getUrl() const;
-
-        bool isRecording() const;
+        const QImage& getThumbnail() const;
 
     signals:
         void startStream_sig();
 
         void availabilityChanged(bool available);
         void recordingChanged(bool status);
-
-    public slots:
+        void thumbnailChanged(const QImage& image);
 
     private slots:
-        void onCheckFinished();
+        void onStatusRetrieved();
+        void onThumbnailRetrieved();
 
         void onThreadStarted();
         void onRecordingChanged(bool status);
 
-        void onRecordingTimerTimeout();
+        void onThumbnailTimerTimeout();
 
     private:
-        QString m_name;
+        void retrieveStatus();
+        void retrieveThumbnail();
 
+        QString m_name;
         QString m_m3u8;
         QString m_url;
 
-        bool m_available;
+        QTimer* m_thumbnailTimer;
+        QImage m_thumbnail;
+
+        bool m_online;
         bool m_recording;
         bool m_recordingStoppedByUser;
         bool m_recordASAP;
 
         StreamRecorder* m_streamRecorder;
         QThread* m_thread;
-
-        QTimer* m_recordingTimer;
 };
 
 #endif // STREAMER_H

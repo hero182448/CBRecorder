@@ -153,7 +153,7 @@ void StreamerListItemForm::updateStatus()
     }
     else
     {
-        QString resource = m_streamer->isAvailable() ? ":/resources/connected.png" : ":/resources/not_connected.png";
+        QString resource = m_streamer->isOnline() ? ":/resources/connected.png" : ":/resources/not_connected.png";
 
         QPixmap pixmap = QPixmap::fromImage(QImage(resource)).scaled(10,
                                                                      10,
@@ -165,7 +165,7 @@ void StreamerListItemForm::updateStatus()
         }
         else
         {
-            ui->streamerStatus->setText(m_streamer->isAvailable() ? "Y" : "N");
+            ui->streamerStatus->setText(m_streamer->isOnline() ? "Y" : "N");
         }
 
         m_gif->stop();
@@ -180,9 +180,9 @@ void StreamerListItemForm::sort()
     {
         std::sort(m_childs.begin(), m_childs.end(), [] (const StreamerListItemForm* streamerListItemForm1, const StreamerListItemForm* streamerListItemForm2) -> bool
         {
-            if(streamerListItemForm1->streamer()->isAvailable() != streamerListItemForm2->streamer()->isAvailable())
+            if(streamerListItemForm1->streamer()->isOnline() != streamerListItemForm2->streamer()->isOnline())
             {
-                return streamerListItemForm1->streamer()->isAvailable() > streamerListItemForm2->streamer()->isAvailable();
+                return streamerListItemForm1->streamer()->isOnline() > streamerListItemForm2->streamer()->isOnline();
             }
             else
             {

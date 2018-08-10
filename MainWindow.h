@@ -5,6 +5,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QSpacerItem>
@@ -27,6 +28,7 @@ class MainWindow : public QWidget
     private slots:
         void onStreamerSelected(Streamer* streamer);
         void onStreamerRecordingChanged(bool recording);
+        void onStreamerThumbnailChanged(QImage thumbnail);
 
         void onAddStreamerClicked();
         void onRecordStreamerClicked();
@@ -43,6 +45,7 @@ class MainWindow : public QWidget
 
         QLineEdit* m_streamerName;
         QPushButton* m_addStreamer;
+        QLabel* m_thumbnail;
         QSpacerItem* m_leftSpacer;
 
         StreamerListView* m_streamerList;

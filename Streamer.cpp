@@ -9,51 +9,38 @@ Streamer::Streamer(const QString& name, QObject *parent) : QObject(parent)
     m_name = name;
     m_url = "https://it.chaturbate.com/" + m_name + "/";
 
-    m_available = false;
+    m_online = false;
     m_recording = false;
     m_recordingStoppedByUser = false;
     m_recordASAP = false;
 
-    m_thread = new QThread();
-    m_streamRecorder = new StreamRecorder();
-    QObject::connect(m_streamRecorder, SIGNAL(recordingChanged(bool)), SLOT(onRecordingChanged(bool)));
-    QObject::connect(m_streamRecorder, SIGNAL(recordingChanged(bool)), SIGNAL(recordingChanged(bool)));
+    m_thread = nullptr;
 
-    m_streamRecorder->moveToThread(m_thread);
-    QObject::connect(m_thread, SIGNAL(started()), SLOT(onThreadStarted()));
-    QObject::connect(m_thread, SIGNAL(finished()), SLOT(deleteLater()));
+    m_thumbnailTimer = new QTimer(this);
+    m_thumbnailTimer->setInterval(30000);
+    m_thumbnailTimer->setSingleShot(true);
+    QObject::connect(m_thumbnailTimer, SIGNAL(timeout()), SLOT(onThumbnailTimerTimeout()));
 
-    m_recordingTimer = new QTimer();
-    m_recordingTimer->setInterval(360 * 60 * 1000); //6 hours
-    m_recordingTimer->setSingleShot(true);
-    QObject::connect(m_recordingTimer, SIGNAL(timeout()), SLOT(onRecordingTimerTimeout()));
-
-    QObject::connect(this, SIGNAL(startStream_sig()), m_streamRecorder, SLOT(startStream()));
-}
-
-bool Streamer::isAvailable() const
-{
-    return m_available;
-}
-
-void Streamer::checkAvailability()
-{
-    HttpRequest input(m_url, "GET");
-
-    HttpRequestWorker* worker = new HttpRequestWorker();
-    QObject::connect(worker, SIGNAL(requestFinished()), this, SLOT(onCheckFinished()));
-    worker->execute(input);
+    retrieveStatus();
 }
 
 void Streamer::startStream()
 {
     m_recordingStoppedByUser = false;
 
-    m_streamRecorder->setName(m_name);
-    m_streamRecorder->setM3u8(m_m3u8);
-
-    if(!m_thread->isRunning())
+    if(!m_thread)
     {
+        m_streamRecorder = new StreamRecorder();
+        m_streamRecorder->setName(m_name);
+        m_streamRecorder->setM3u8(m_m3u8);
+        QObject::connect(m_streamRecorder, SIGNAL(recordingChanged(bool)), SLOT(onRecordingChanged(bool)));
+        QObject::connect(m_streamRecorder, SIGNAL(recordingChanged(bool)), SIGNAL(recordingChanged(bool)));
+        QObject::connect(this, SIGNAL(startStream_sig()), m_streamRecorder, SLOT(startStream()));
+
+        m_thread = new QThread();
+        m_streamRecorder->moveToThread(m_thread);
+        QObject::connect(m_thread, SIGNAL(started()), SLOT(onThreadStarted()));
+        QObject::connect(m_thread, SIGNAL(finished()), SLOT(deleteLater()));
         m_thread->start();
     }
     else
@@ -69,38 +56,79 @@ void Streamer::stopStream()
     m_streamRecorder->stopStream();
 }
 
-bool Streamer::isRecordASAP()
+bool Streamer::isRecording() const
 {
-    return m_recordASAP;
+    return m_recording;
 }
 
 void Streamer::setRecordASAP(bool status)
 {
     m_recordASAP = status;
 
-    if(status && isAvailable())
+    if(status && isOnline())
     {
         startStream();
     }
 }
 
-void Streamer::onCheckFinished()
+bool Streamer::isRecordASAP() const
+{
+    return m_recordASAP;
+}
+
+bool Streamer::isOnline() const
+{
+    return m_online;
+}
+
+QString Streamer::getName() const
+{
+    return m_name;
+}
+
+QString Streamer::getM3u8() const
+{
+    return m_m3u8;
+}
+
+QString Streamer::getUrl() const
+{
+    return m_url;
+}
+
+const QImage& Streamer::getThumbnail() const
+{
+    return m_thumbnail;
+}
+
+void Streamer::retrieveStatus()
+{
+    HttpRequest input(m_url, "GET");
+
+    HttpRequestWorker* worker = new HttpRequestWorker();
+    QObject::connect(worker, SIGNAL(requestFinished()), this, SLOT(onStatusRetrieved()));
+    worker->execute(input);
+}
+
+void Streamer::onStatusRetrieved()
 {
     HttpRequestWorker* worker = qobject_cast<HttpRequestWorker*>(QObject::sender());
 
     QString response = worker->getResponse();
     if(response.contains("m3u8"))
     {
-        if(!m_available)
+        if(!m_online)
         {
-            MainWindow::getInstance()->showNotification(m_name + " has connected");
+            m_online = true;
 
-            m_available = true;
+            MainWindow::getInstance()->showNotification(m_name + " has connected");
 
             if(m_recordASAP)
             {
                 startStream();
             }
+
+            retrieveThumbnail();
         }
 
         response = response.left(response.indexOf("m3u8") + 4);
@@ -109,16 +137,24 @@ void Streamer::onCheckFinished()
     }
     else
     {
-        m_available = false;
+        m_online = false;
     }
 
     worker->deleteLater();
 
-    emit availabilityChanged(m_available);
+    emit availabilityChanged(m_online);
 
     QTimer::singleShot(60000, [=] () {
-        checkAvailability();
+        retrieveStatus();
     });
+}
+
+void Streamer::onThumbnailRetrieved()
+{
+    HttpRequestWorker* worker = qobject_cast<HttpRequestWorker*>(QObject::sender());
+
+    m_thumbnail = worker->getImage();
+    emit thumbnailChanged(m_thumbnail);
 }
 
 void Streamer::onThreadStarted()
@@ -133,8 +169,6 @@ void Streamer::onRecordingChanged(bool status)
     if(m_recording)
     {
         MainWindow::getInstance()->showNotification("Recording " + m_name);
-
-        m_recordingTimer->start();
     }
     else
     {
@@ -153,28 +187,28 @@ void Streamer::onRecordingChanged(bool status)
     }
 }
 
-void Streamer::onRecordingTimerTimeout()
+void Streamer::onThumbnailTimerTimeout()
 {
-    qDebug() << Q_FUNC_INFO << "Timer timed out, stopping stream";
-    m_streamRecorder->stopStream();
+    retrieveThumbnail();
 }
 
-QString Streamer::getName() const
+void Streamer::retrieveThumbnail()
 {
-    return m_name;
-}
+    if(m_online)
+    {
+        HttpRequest input("https://roomimg.stream.highwebmedia.com/ri/" + m_name + ".jpg", "GET");
 
-QString Streamer::getM3u8() const
-{
-    return m_m3u8;
-}
+        HttpRequestWorker* worker = new HttpRequestWorker();
+        QObject::connect(worker, SIGNAL(requestFinished()), this, SLOT(onThumbnailRetrieved()));
+        worker->execute(input);
 
-QString Streamer::getUrl() const
-{
-    return m_url;
-}
-
-bool Streamer::isRecording() const
-{
-    return m_recording;
+        if(!m_thumbnailTimer->isActive())
+        {
+            m_thumbnailTimer->start();
+        }
+    }
+    else
+    {
+        m_thumbnailTimer->stop();
+    }
 }

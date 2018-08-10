@@ -61,7 +61,6 @@ void StreamerManager::addStreamer(const QString& name)
 
     Streamer* streamer = new Streamer(name);
     QObject::connect(streamer, SIGNAL(recordingChanged(bool)), SLOT(onRecordingChanged(bool)));
-    streamer->checkAvailability();
     m_streamers.push_back(streamer);
 
     emit streamerAdded(streamer);

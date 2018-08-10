@@ -4,6 +4,7 @@
 #include <QBuffer>
 #include <QFile>
 #include <QFileInfo>
+#include <QImage>
 #include <QNetworkReply>
 #include <QObject>
 
@@ -20,6 +21,7 @@ class HttpRequestWorker : public QObject
         void execute(HttpRequest input);
 
         QByteArray getResponse() const;
+        QImage getThumbnail() const;
 
     signals:
         void requestFinished(/*HttpRequestWorker* worker*/);

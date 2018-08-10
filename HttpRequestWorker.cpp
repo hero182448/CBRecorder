@@ -236,6 +236,11 @@ QByteArray HttpRequestWorker::getResponse() const
     return m_response;
 }
 
+QImage HttpRequestWorker::getImage() const
+{
+    return QImage::fromData(m_response);
+}
+
 void HttpRequestWorker::onRequestFinished(QNetworkReply* reply)
 {
     m_networkError = reply->error();

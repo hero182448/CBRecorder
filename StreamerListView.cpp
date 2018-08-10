@@ -154,40 +154,52 @@ void StreamerListView::onContextMenuRequested(QPoint position)
 {
     QMenu menu(this);
 
-    QAction* copyURL = menu.addAction("Copy URL");
-    QAction* recordAsap = menu.addAction("Record ASAP");
-    QAction* removeStreamer = menu.addAction("Remove streamer");
-
-    QAction* selectedAction = menu.exec(viewport()->mapToGlobal(position));
-
-    if(selectedAction == copyURL)
+    Streamer* selectedStreamer = nullptr;
+    QModelIndexList selection = selectionModel()->selectedRows();
+    while(!selection.isEmpty())
     {
-        QModelIndexList selection = selectionModel()->selectedRows();
-        while(!selection.isEmpty())
+        selectedStreamer = m_streamerListModel->rootItem()->child(selection.takeLast().row())->streamer();
+        break;
+    }
+
+    if(selectedStreamer != nullptr)
+    {
+        QAction* copyURL = menu.addAction("Copy URL");
+        QAction* record = menu.addAction(!selectedStreamer->isRecording() ? "Record" : "Stop recording");
+        QAction* recordAsap = menu.addAction(!selectedStreamer->isRecordASAP() ? "Record ASAP" : "Not record ASAP");
+        QAction* removeStreamer = menu.addAction("Remove streamer");
+
+        QAction* selectedAction = menu.exec(viewport()->mapToGlobal(position));
+
+        if(selectedAction == copyURL)
         {
-            Streamer* streamer = m_streamerListModel->rootItem()->child(selection.takeLast().row())->streamer();
             QClipboard* clipboard = QApplication::clipboard();
-            clipboard->setText(streamer->getUrl());
-            break;
+            clipboard->setText(selectedStreamer->getUrl());
+        }
+        else if(selectedAction == record)
+        {
+            if(!selectedStreamer->isRecording())
+            {
+                selectedStreamer->startStream();
+            }
+            else
+            {
+                selectedStreamer->stopStream();
+            }
+        }
+        else if(selectedAction == recordAsap)
+        {
+            selectedStreamer->setRecordASAP(!selectedStreamer->isRecordASAP());
+            StreamerManager::getInstance()->updateRecordASAP();
+        }
+        else if(selectedAction == removeStreamer)
+        {
+            StreamerManager::getInstance()->deleteStreamer(selectedStreamer);
         }
     }
-    else if(selectedAction == recordAsap)
+    else
     {
-        QModelIndexList selection = selectionModel()->selectedRows();
-        while(!selection.isEmpty())
-        {
-            Streamer* streamer = m_streamerListModel->rootItem()->child(selection.takeLast().row())->streamer();
-            streamer->setRecordASAP(!streamer->isRecordASAP());
-        }
-        StreamerManager::getInstance()->updateRecordASAP();
-    }
-    else if(selectedAction == removeStreamer)
-    {
-        QModelIndexList selection = selectionModel()->selectedRows();
-        while(!selection.isEmpty())
-        {
-            StreamerManager::getInstance()->deleteStreamer(m_streamerListModel->rootItem()->child(selection.takeLast().row())->streamer());
-        }
+        qDebug() << "No streamer selected";
     }
 }
 

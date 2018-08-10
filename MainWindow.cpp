@@ -9,6 +9,9 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent)
     m_addStreamer = new QPushButton("Add");
     QObject::connect(m_addStreamer, SIGNAL(clicked(bool)), SLOT(onAddStreamerClicked()));
 
+    m_thumbnail = new QLabel();
+    m_thumbnail->setFixedSize(300, 300);
+
     m_streamerName = new QLineEdit();
 
     m_leftSpacer = new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -16,6 +19,7 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent)
     m_leftLayout = new QVBoxLayout();
     m_leftLayout->addWidget(m_streamerName);
     m_leftLayout->addWidget(m_addStreamer);
+    m_leftLayout->addWidget(m_thumbnail);
     m_leftLayout->addItem(m_leftSpacer);
 
     m_streamerList = new StreamerListView(true, this);
@@ -68,18 +72,26 @@ void MainWindow::onStreamerSelected(Streamer* streamer)
         if(previousStreamer)
         {
             QObject::disconnect(previousStreamer, SIGNAL(recordingChanged(bool)), this, SLOT(onStreamerRecordingChanged(bool)));
+            QObject::disconnect(previousStreamer, SIGNAL(thumbnailChanged(QImage)), this, SLOT(onStreamerThumbnailChanged(QImage)));
         }
-
-        m_recordStreamer->setText(streamer->isRecording() ? "Stop recording" : "Record");
 
         previousStreamer = streamer;
         QObject::connect(streamer, SIGNAL(recordingChanged(bool)), SLOT(onStreamerRecordingChanged(bool)));
+        QObject::connect(streamer, SIGNAL(thumbnailChanged(QImage)), this, SLOT(onStreamerThumbnailChanged(QImage)));
+
+        m_recordStreamer->setText(streamer->isRecording() ? "Stop recording" : "Record");
+        m_thumbnail->setPixmap(QPixmap::fromImage(streamer->getThumbnail()));
     }
 }
 
 void MainWindow::onStreamerRecordingChanged(bool recording)
 {
     m_recordStreamer->setText(recording ? "Stop recording" : "Record");
+}
+
+void MainWindow::onStreamerThumbnailChanged(QImage thumbnail)
+{
+    m_thumbnail->setPixmap(QPixmap::fromImage(thumbnail));
 }
 
 void MainWindow::onAddStreamerClicked()
@@ -97,7 +109,7 @@ void MainWindow::onRecordStreamerClicked()
         {
             streamer->stopStream();
         }
-        else if(streamer->isAvailable())
+        else if(streamer->isOnline())
         {
             streamer->startStream();
         }
