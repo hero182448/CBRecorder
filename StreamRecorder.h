@@ -9,25 +9,23 @@ class StreamRecorder : public QObject
         Q_OBJECT
 
     public:
-        explicit StreamRecorder(QObject *parent = nullptr);
+        explicit StreamRecorder(QObject* parent = nullptr);
 
         void setName(const QString& name);
         void setM3u8(const QString& m3u8);
 
-        QString filename() const;
+        QString getFilename() const;
 
     signals:
         void recordingChanged(bool status);
 
     public slots:
-        void startStream();
-        void stopStream();
+        void startRecording();
+        void stopRecording();
 
     private slots:
         void onStarted();
         void onFinished(int exitCode, QProcess::ExitStatus exitStatus);
-
-        void readStdout();
 
     private:
         static void createDirectories();

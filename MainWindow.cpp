@@ -31,12 +31,17 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent)
     m_shutdown = new QPushButton("Shutdown");
     QObject::connect(m_shutdown, SIGNAL(clicked(bool)), SLOT(onShutdownClicked()));
 
+    m_stopShutdown = new QPushButton("Stop shutdown");
+    m_stopShutdown->hide();
+    QObject::connect(m_stopShutdown, SIGNAL(clicked(bool)), SLOT(onStopShutdownClicked()));
+
     m_rightSpacer = new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     m_rightLayout = new QVBoxLayout();
     m_rightLayout->addWidget(m_streamerList);
     m_rightLayout->addWidget(m_recordStreamer);
     m_rightLayout->addWidget(m_shutdown);
+    m_rightLayout->addWidget(m_stopShutdown);
     m_rightLayout->addItem(m_rightSpacer);
 
     m_mainLayout = new QHBoxLayout(this);
@@ -44,6 +49,9 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent)
     m_mainLayout->addLayout(m_rightLayout);
 
     setLayout(m_mainLayout);
+
+    QObject::connect(Utilities::getInstance(), &Utilities::shutdownTimerStarted, this, &MainWindow::onShutdownTimerStarted);
+    QObject::connect(Utilities::getInstance(), &Utilities::shutdownTimerStopped, this, &MainWindow::onShutdownTimerStopped);
 }
 
 MainWindow* MainWindow::getInstance()
@@ -54,13 +62,6 @@ MainWindow* MainWindow::getInstance()
     }
 
     return m_instance;
-}
-
-void MainWindow::showNotification(QString message)
-{
-    QSystemTrayIcon notification;
-    notification.setVisible(true);
-    notification.showMessage("StreamRecorder", message);
 }
 
 void MainWindow::onStreamerSelected(Streamer* streamer)
@@ -97,7 +98,6 @@ void MainWindow::onStreamerThumbnailChanged(QImage thumbnail)
 void MainWindow::onAddStreamerClicked()
 {
     StreamerManager::getInstance()->addStreamer(m_streamerName->text());
-    //Maps the widget within its parent ---> m_streamerList->mapTo(this, m_streamerList->rect().topLeft());
 }
 
 void MainWindow::onRecordStreamerClicked()
@@ -107,11 +107,11 @@ void MainWindow::onRecordStreamerClicked()
     {
         if(streamer->isRecording())
         {
-            streamer->stopStream();
+            streamer->stopRecording();
         }
         else if(streamer->isOnline())
         {
-            streamer->startStream();
+            streamer->startRecording();
         }
     }
 }
@@ -128,4 +128,19 @@ void MainWindow::onShutdownClicked()
         m_shutdown->setText("Shutdown");
         StreamerManager::getInstance()->setShutdown(false);
     }
+}
+
+void MainWindow::onStopShutdownClicked()
+{
+    Utilities::getInstance()->stopShutdownTimer();
+}
+
+void MainWindow::onShutdownTimerStarted()
+{
+    m_stopShutdown->show();
+}
+
+void MainWindow::onShutdownTimerStopped()
+{
+    m_stopShutdown->hide();
 }

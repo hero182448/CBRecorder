@@ -6,14 +6,13 @@ TARGET = CBRecorder
 CONFIG += console
 CONFIG -= app_bundle
 
-INCLUDEPATH += $$PWD/libsnore
+INCLUDEPATH += $$PWD/ffmpeg/include
 
 TEMPLATE = app
 
 SOURCES += main.cpp \
     HttpRequest.cpp \
     HttpRequestWorker.cpp \
-    HttpRequestManager.cpp \
     Streamer.cpp \
     MainWindow.cpp \
     StreamerListView.cpp \
@@ -22,11 +21,12 @@ SOURCES += main.cpp \
     StreamerManager.cpp \
     StreamerListItemForm.cpp \
     StreamRecorder.cpp \
+    Utilities.cpp \
+    NewStreamRecorder.cpp
 
 HEADERS += \
     HttpRequest.h \
     HttpRequestWorker.h \
-    HttpRequestManager.h \
     Streamer.h \
     MainWindow.h \
     StreamerListView.h \
@@ -35,6 +35,10 @@ HEADERS += \
     StreamerManager.h \
     StreamerListItemForm.h \
     StreamRecorder.h \
+    Utilities.h \
+    NewStreamRecorder.h
+
+LIBS +=
 
 # The following define makes your compiler emit warnings if you use
 # any feature of Qt which as been marked deprecated (the exact warnings

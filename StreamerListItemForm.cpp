@@ -20,8 +20,8 @@ StreamerListItemForm::StreamerListItemForm(Streamer* streamer, StreamerListItemF
     m_parent = parent;
 
     m_streamer = streamer;
-    QObject::connect(m_streamer, SIGNAL(availabilityChanged(bool)), SLOT(updateStatus()));
-    QObject::connect(m_streamer, SIGNAL(recordingChanged(bool)), SLOT(updateStatus()));
+    QObject::connect(m_streamer, &Streamer::statusChanged, this, &StreamerListItemForm::updateStatus);
+    QObject::connect(m_streamer, &Streamer::recordingChanged, this, &StreamerListItemForm::updateStatus);
 
     m_gif = new QMovie(":/resources/loading_spinner.gif");
     m_gif->setScaledSize(ui->streamerStatus->size());

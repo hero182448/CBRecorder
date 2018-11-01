@@ -5,6 +5,7 @@
 #include <QVector>
 
 #include "Streamer.h"
+#include "Utilities.h"
 
 class StreamerManager : public QObject
 {
@@ -31,6 +32,7 @@ class StreamerManager : public QObject
 
     private slots:
         void onRecordingChanged(bool status);
+        void onRetryingToRecordChanged(bool status);
         void onRecordASAPTimerTimeout();
 
     protected:
@@ -38,6 +40,7 @@ class StreamerManager : public QObject
 
     private:
         bool isRecordingAnyone();
+        bool isRetryingToRecordAnyone();
 
         void addModel(const QString& string);
         QStringList readModels();

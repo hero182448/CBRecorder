@@ -16,6 +16,7 @@ class HttpRequestWorker : public QObject
 
     public:
         explicit HttpRequestWorker();
+        ~HttpRequestWorker();
 
         QString encodeAttribute(QString attribute, QString input);
         void execute(HttpRequest input);

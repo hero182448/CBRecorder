@@ -12,7 +12,7 @@ StreamerListView::StreamerListView(bool sort, QWidget* parent) : QListView(paren
 {
     m_streamerListModel = new StreamerListModel(sort, parent);
     setModel(m_streamerListModel);
-    QObject::connect(m_streamerListModel, SIGNAL(itemUpdated()), SLOT(repaint()));
+    QObject::connect(m_streamerListModel, &StreamerListModel::itemUpdated, this, QOverload<>::of(&StreamerListView::repaint));
 
     m_streamerListDelegate = new StreamerListDelegate(this);
     setItemDelegate(m_streamerListDelegate);
@@ -24,7 +24,7 @@ StreamerListView::StreamerListView(bool sort, QWidget* parent) : QListView(paren
     //setUniformItemSizes(true);
 
     setContextMenuPolicy(Qt::CustomContextMenu);
-    QObject::connect(this, SIGNAL(customContextMenuRequested(QPoint)), SLOT(onContextMenuRequested(QPoint)));
+    QObject::connect(this, &StreamerListView::customContextMenuRequested, this, &StreamerListView::onContextMenuRequested);
 
     setStyleSheet(QString("QListView {"
                           "background: transparent;"
@@ -34,14 +34,16 @@ StreamerListView::StreamerListView(bool sort, QWidget* parent) : QListView(paren
     //    verticalScrollBar()->setStyle(new QCommonStyle());
     //    verticalScrollBar()->setStyleSheet(GuiUtils::SCROLL_BAR_STYLE);
 
-    QObject::connect(this, SIGNAL(clicked(QModelIndex)), this, SLOT(onItemClicked(QModelIndex)));
-    QObject::connect(this, SIGNAL(pressed(QModelIndex)), this, SLOT(onItemPressed(QModelIndex)));
-    QObject::connect(this, SIGNAL(doubleClicked(QModelIndex)), this, SLOT(onItemDoubleClicked(QModelIndex)));
 
-    QObject::connect(selectionModel(), SIGNAL(currentRowChanged(QModelIndex, QModelIndex)), this, SLOT(onCurrentRowChanged(QModelIndex, QModelIndex)));
+    QObject::connect(this, &StreamerListView::clicked, this, &StreamerListView::onItemClicked);
+    QObject::connect(this, &StreamerListView::pressed, this, &StreamerListView::onItemPressed);
+    QObject::connect(this, &StreamerListView::doubleClicked, this, &StreamerListView::onItemDoubleClicked);
 
-    QObject::connect(StreamerManager::getInstance(), SIGNAL(streamerAdded(Streamer*)), SLOT(onStreamerAdded(Streamer*)));
-    QObject::connect(StreamerManager::getInstance(), SIGNAL(streamerDeleted(Streamer*)), SLOT(onStreamerRemoved(Streamer*)));
+    QObject::connect(selectionModel(), &QItemSelectionModel::currentRowChanged, this, &StreamerListView::onCurrentRowChanged);
+
+    QObject::connect(StreamerManager::getInstance(), &StreamerManager::streamerAdded, this, &StreamerListView::onStreamerAdded);
+    QObject::connect(StreamerManager::getInstance(), &StreamerManager::streamerDeleted, this, &StreamerListView::onStreamerRemoved);
+
     StreamerManager::getInstance()->initialize();
 
     m_updateGifTimer = new QTimer(this);
@@ -174,17 +176,17 @@ void StreamerListView::onContextMenuRequested(QPoint position)
         if(selectedAction == copyURL)
         {
             QClipboard* clipboard = QApplication::clipboard();
-            clipboard->setText(selectedStreamer->getUrl());
+            clipboard->setText(selectedStreamer->getM3u8());
         }
-        else if(selectedAction == record)
+        else if(selectedAction == record && selectedStreamer->isOnline())
         {
             if(!selectedStreamer->isRecording())
             {
-                selectedStreamer->startStream();
+                selectedStreamer->startRecording();
             }
             else
             {
-                selectedStreamer->stopStream();
+                selectedStreamer->stopRecording();
             }
         }
         else if(selectedAction == recordAsap)

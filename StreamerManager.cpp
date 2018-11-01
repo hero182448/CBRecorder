@@ -5,12 +5,12 @@
 
 StreamerManager* StreamerManager::m_instance = nullptr;
 
-StreamerManager::StreamerManager(QObject *parent) : QObject(parent)
+StreamerManager::StreamerManager(QObject* parent) : QObject(parent)
 {
     m_shutdown = false;
 
     m_recordingASAPTimer = new QTimer(this);
-    m_recordingASAPTimer->setInterval(2 * 60 * 60 * 1000); //2h
+    m_recordingASAPTimer->setInterval(60 * 60 * 1000); //1h
     QObject::connect(m_recordingASAPTimer, &QTimer::timeout, this, &StreamerManager::onRecordASAPTimerTimeout);
 
     m_recordingASAP = false;
@@ -60,7 +60,8 @@ void StreamerManager::addStreamer(const QString& name)
     addModel(name);
 
     Streamer* streamer = new Streamer(name);
-    QObject::connect(streamer, SIGNAL(recordingChanged(bool)), SLOT(onRecordingChanged(bool)));
+    QObject::connect(streamer, &Streamer::recordingChanged, this, &StreamerManager::onRecordingChanged);
+    QObject::connect(streamer, &Streamer::retryingToRecordChanged, this, &StreamerManager::onRetryingToRecordChanged);
     m_streamers.push_back(streamer);
 
     emit streamerAdded(streamer);
@@ -109,18 +110,30 @@ void StreamerManager::setShutdown(bool shutdown)
 
 void StreamerManager::onRecordingChanged(bool status)
 {
-    qDebug() << "status" << status << "isRecordingAnyone" << isRecordingAnyone() << "m_shutdown" << m_shutdown;
-    if(!status && !isRecordingAnyone() && m_shutdown)
+    Streamer* streamer = qobject_cast<Streamer*>(QObject::sender());
+
+    qDebug() << "status" << status << "isRecordingAnyone" << isRecordingAnyone() << "streamer->isRetryingToRecord()" << streamer->isRetryingToRecord() << "m_shutdown" << m_shutdown;
+    if(!status && !isRecordingAnyone() && !streamer->isRetryingToRecord() && m_shutdown)
     {
-        QProcess::startDetached("shutdown -s -f -t 60");
+        Utilities::getInstance()->startShutdownTimer();
+    }
+}
+
+void StreamerManager::onRetryingToRecordChanged(bool status)
+{
+    qDebug() << "status" << status << "isRecordingAnyone" << isRecordingAnyone() << "isRetryingToRecordAnyone()" << isRetryingToRecordAnyone() << "m_shutdown" << m_shutdown;
+    if(!status && !isRecordingAnyone() && !isRetryingToRecordAnyone() && m_shutdown)
+    {
+        Utilities::getInstance()->startShutdownTimer();
     }
 }
 
 void StreamerManager::onRecordASAPTimerTimeout()
 {
+    qDebug() << "isRecordingAnyone" << isRecordingAnyone();
     if(!isRecordingAnyone())
     {
-        QProcess::startDetached("shutdown -s -f -t 60");
+        Utilities::getInstance()->startShutdownTimer();
     }
     else
     {
@@ -134,6 +147,19 @@ bool StreamerManager::isRecordingAnyone()
     foreach(Streamer* i_streamer, m_streamers)
     {
         if(i_streamer->isRecording())
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool StreamerManager::isRetryingToRecordAnyone()
+{
+    foreach(Streamer* i_streamer, m_streamers)
+    {
+        if(i_streamer->isRetryingToRecord())
         {
             return true;
         }

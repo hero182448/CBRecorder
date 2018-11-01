@@ -12,6 +12,7 @@
 
 #include "StreamerListView.h"
 #include "StreamerManager.h"
+#include "Utilities.h"
 
 class MainWindow : public QWidget
 {
@@ -19,8 +20,6 @@ class MainWindow : public QWidget
 
     public:
         static MainWindow* getInstance();
-
-        void showNotification(QString message);
 
     protected:
         explicit MainWindow(QWidget* parent = nullptr);
@@ -34,6 +33,10 @@ class MainWindow : public QWidget
         void onRecordStreamerClicked();
 
         void onShutdownClicked();
+        void onStopShutdownClicked();
+
+        void onShutdownTimerStarted();
+        void onShutdownTimerStopped();
 
     private:
         static MainWindow* m_instance;
@@ -51,6 +54,7 @@ class MainWindow : public QWidget
         StreamerListView* m_streamerList;
         QPushButton* m_recordStreamer;
         QPushButton* m_shutdown;
+        QPushButton* m_stopShutdown;
         QSpacerItem* m_rightSpacer;
 };
 

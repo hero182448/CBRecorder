@@ -4,27 +4,29 @@
 
 #include "MainWindow.h"
 
-Streamer::Streamer(const QString& name, QObject *parent) : QObject(parent)
+Streamer::Streamer(const QString& name, QObject* parent) : QObject(parent)
 {
     m_name = name;
     m_url = "https://it.chaturbate.com/" + m_name + "/";
 
     m_online = false;
     m_recording = false;
-    m_recordingStoppedByUser = false;
     m_recordASAP = false;
+
+    m_recordingStoppedByUser = false;
+    m_retryingToRecord = false;
 
     m_thread = nullptr;
 
     m_thumbnailTimer = new QTimer(this);
     m_thumbnailTimer->setInterval(30000);
     m_thumbnailTimer->setSingleShot(true);
-    QObject::connect(m_thumbnailTimer, SIGNAL(timeout()), SLOT(onThumbnailTimerTimeout()));
+    QObject::connect(m_thumbnailTimer, &QTimer::timeout, this, &Streamer::onThumbnailTimerTimeout);
 
     retrieveStatus();
 }
 
-void Streamer::startStream()
+void Streamer::startRecording()
 {
     m_recordingStoppedByUser = false;
 
@@ -33,32 +35,37 @@ void Streamer::startStream()
         m_streamRecorder = new StreamRecorder();
         m_streamRecorder->setName(m_name);
         m_streamRecorder->setM3u8(m_m3u8);
-        QObject::connect(m_streamRecorder, SIGNAL(recordingChanged(bool)), SLOT(onRecordingChanged(bool)));
-        QObject::connect(m_streamRecorder, SIGNAL(recordingChanged(bool)), SIGNAL(recordingChanged(bool)));
-        QObject::connect(this, SIGNAL(startStream_sig()), m_streamRecorder, SLOT(startStream()));
+        QObject::connect(m_streamRecorder, &StreamRecorder::recordingChanged, this, &Streamer::onRecordingChanged);
+        QObject::connect(m_streamRecorder, &StreamRecorder::recordingChanged, this, &Streamer::recordingChanged);
+        QObject::connect(this, &Streamer::startRecordingWorker, m_streamRecorder, &StreamRecorder::startRecording);
 
         m_thread = new QThread();
         m_streamRecorder->moveToThread(m_thread);
-        QObject::connect(m_thread, SIGNAL(started()), SLOT(onThreadStarted()));
-        QObject::connect(m_thread, SIGNAL(finished()), SLOT(deleteLater()));
+        QObject::connect(m_thread, &QThread::started, m_streamRecorder, &StreamRecorder::startRecording);
+        QObject::connect(m_thread, &QThread::finished, m_streamRecorder, &StreamRecorder::deleteLater);
         m_thread->start();
     }
     else
     {
-        emit startStream_sig();
+        emit startRecordingWorker();
     }
 }
 
-void Streamer::stopStream()
+void Streamer::stopRecording()
 {
     m_recordingStoppedByUser = true;
 
-    m_streamRecorder->stopStream();
+    m_streamRecorder->stopRecording();
 }
 
 bool Streamer::isRecording() const
 {
     return m_recording;
+}
+
+bool Streamer::isRetryingToRecord() const
+{
+    return m_retryingToRecord;
 }
 
 void Streamer::setRecordASAP(bool status)
@@ -67,7 +74,7 @@ void Streamer::setRecordASAP(bool status)
 
     if(status && isOnline())
     {
-        startStream();
+        startRecording();
     }
 }
 
@@ -101,15 +108,6 @@ const QImage& Streamer::getThumbnail() const
     return m_thumbnail;
 }
 
-void Streamer::retrieveStatus()
-{
-    HttpRequest input(m_url, "GET");
-
-    HttpRequestWorker* worker = new HttpRequestWorker();
-    QObject::connect(worker, SIGNAL(requestFinished()), this, SLOT(onStatusRetrieved()));
-    worker->execute(input);
-}
-
 void Streamer::onStatusRetrieved()
 {
     HttpRequestWorker* worker = qobject_cast<HttpRequestWorker*>(QObject::sender());
@@ -121,11 +119,11 @@ void Streamer::onStatusRetrieved()
         {
             m_online = true;
 
-            MainWindow::getInstance()->showNotification(m_name + " has connected");
+            Utilities::getInstance()->showNotification(m_name + " has connected");
 
-            if(m_recordASAP)
+            if(m_recordASAP || m_retryingToRecord)
             {
-                startStream();
+                startRecording();
             }
 
             retrieveThumbnail();
@@ -142,24 +140,27 @@ void Streamer::onStatusRetrieved()
 
     worker->deleteLater();
 
-    emit availabilityChanged(m_online);
+    emit statusChanged(m_online);
 
-    QTimer::singleShot(60000, [=] () {
+    qDebug() << "Retrieving status of" << m_name << "in 2 minutes";
+    QTimer::singleShot(120000, [=] () {
+        qDebug() << "Retrieving status of" << m_name << "now";
         retrieveStatus();
     });
 }
 
 void Streamer::onThumbnailRetrieved()
 {
+    qDebug() << "Streamer::onThumbnailRetrieved()";
     HttpRequestWorker* worker = qobject_cast<HttpRequestWorker*>(QObject::sender());
 
-    m_thumbnail = worker->getImage();
+    m_thumbnail = worker->getThumbnail();
     emit thumbnailChanged(m_thumbnail);
 }
 
 void Streamer::onThreadStarted()
 {
-    emit startStream_sig();
+    emit startRecordingWorker();
 }
 
 void Streamer::onRecordingChanged(bool status)
@@ -168,20 +169,22 @@ void Streamer::onRecordingChanged(bool status)
     
     if(m_recording)
     {
-        MainWindow::getInstance()->showNotification("Recording " + m_name);
+        Utilities::getInstance()->showNotification("Recording " + m_name);
     }
     else
     {
-        MainWindow::getInstance()->showNotification("Stopped recording " + m_name);
+        Utilities::getInstance()->showNotification("Stopped recording " + m_name);
 
-        QFile::rename(("recordings\\tmp\\" + m_streamRecorder->filename()), "recordings\\" + m_streamRecorder->filename());
+        QFile::rename(("recordings\\tmp\\" + m_streamRecorder->getFilename()), "recordings\\" + m_streamRecorder->getFilename());
 
         if(!m_recordingStoppedByUser)
         {
-            qDebug() << "Start recording again because recording wasn't stopped by user";
-            QTimer::singleShot(1000, [=] ()
-            {
-                startStream();
+            m_retryingToRecord = true;
+            emit retryingToRecordChanged(m_retryingToRecord);
+
+            QTimer::singleShot(60000, [this] () {
+                m_retryingToRecord = false;
+                emit retryingToRecordChanged(m_retryingToRecord);
             });
         }
     }
@@ -189,7 +192,17 @@ void Streamer::onRecordingChanged(bool status)
 
 void Streamer::onThumbnailTimerTimeout()
 {
+    qDebug() << "Streamer::onThumbnailTimerTimeout()";
     retrieveThumbnail();
+}
+
+void Streamer::retrieveStatus()
+{
+    HttpRequest input(m_url, "GET");
+
+    HttpRequestWorker* worker = new HttpRequestWorker();
+    QObject::connect(worker, &HttpRequestWorker::requestFinished, this, &Streamer::onStatusRetrieved);
+    worker->execute(input);
 }
 
 void Streamer::retrieveThumbnail()
@@ -199,7 +212,7 @@ void Streamer::retrieveThumbnail()
         HttpRequest input("https://roomimg.stream.highwebmedia.com/ri/" + m_name + ".jpg", "GET");
 
         HttpRequestWorker* worker = new HttpRequestWorker();
-        QObject::connect(worker, SIGNAL(requestFinished()), this, SLOT(onThumbnailRetrieved()));
+        QObject::connect(worker, &HttpRequestWorker::requestFinished, this, &Streamer::onThumbnailRetrieved);
         worker->execute(input);
 
         if(!m_thumbnailTimer->isActive())

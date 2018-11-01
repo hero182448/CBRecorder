@@ -4,24 +4,29 @@
 #include <QDebug>
 #include <QDir>
 
-StreamRecorder::StreamRecorder(QObject *parent) : QObject(parent)
+StreamRecorder::StreamRecorder(QObject* parent) : QObject(parent)
 {
     m_process = new QProcess(this);
-    QObject::connect(m_process, SIGNAL(started()), SLOT(onStarted()));
-    QObject::connect(m_process, SIGNAL(finished(int, QProcess::ExitStatus)), SLOT(onFinished(int, QProcess::ExitStatus)));
+    QObject::connect(m_process, &QProcess::started, this, &StreamRecorder::onStarted);
+    QObject::connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &StreamRecorder::onFinished);
 
-    QObject::connect(m_process, SIGNAL(readyRead()), SLOT(readStdout()));
+#ifdef FFMPEG_DEBUG
+    QObject::connect(m_process, &QProcess::readyReadStandardError, [=] () {
+        qDebug() << m_process->readAllStandardError();
+    });
+#endif
 }
 
-void StreamRecorder::startStream()
+void StreamRecorder::startRecording()
 {
     createDirectories();
 
-    qDebug() << "Starting streaming of" << m_name;
+    qDebug() << "Start recording streaming of" << m_name;
 
     m_filename = m_name + "_" + QDateTime::currentDateTime().toString("dd.MM.yyyy_hh.mm.ss") + ".mp4";
 
-    //ffmpeg ... -i "https://sitevideo.com/list.m3u8" -map p:1 -c copy "/home/file/video.ts"
+    //ffmpeg ... -i "input.m3u8" -map p:5 -c copy "output.mp4"
+    //p:4 is 720
     //p:5 is 1080
 
     m_process->start("ffmpeg\\bin\\ffmpeg.exe -i " + m_m3u8 + " -c copy recordings\\tmp\\" + m_filename);
@@ -30,9 +35,9 @@ void StreamRecorder::startStream()
     qDebug() << "Recording started, saving streaming into file" << m_filename;
 }
 
-void StreamRecorder::stopStream()
+void StreamRecorder::stopRecording()
 {
-    qDebug() << "Stopping streaming of" << m_name;
+    qDebug() << "Stop recording streaming of" << m_name;
     m_process->write("q");
     m_process->write("\r\n");
 }
@@ -47,12 +52,6 @@ void StreamRecorder::onFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
     qDebug() << "QProcess::finished, streamer is" << m_name << ", exitCode is" << exitCode << ", exitStatus is" << exitStatus;
     emit recordingChanged(false);
-}
-
-void StreamRecorder::readStdout()
-{
-    qDebug() << "StreamRecorder::readStdout";
-    qDebug() << m_process->readAllStandardOutput();
 }
 
 void StreamRecorder::createDirectories()
@@ -70,7 +69,7 @@ void StreamRecorder::createDirectories()
     }
 }
 
-QString StreamRecorder::filename() const
+QString StreamRecorder::getFilename() const
 {
     return m_filename;
 }

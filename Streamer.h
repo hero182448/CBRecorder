@@ -5,7 +5,7 @@
 #include <QThread>
 #include <QTimer>
 
-#include "HttpRequestManager.h"
+#include "HttpRequestWorker.h"
 #include "StreamRecorder.h"
 
 class Streamer : public QObject
@@ -13,11 +13,12 @@ class Streamer : public QObject
     Q_OBJECT
 
     public:
-        explicit Streamer(const QString& name, QObject *parent = nullptr);
+        explicit Streamer(const QString& name, QObject* parent = nullptr);
 
-        void startStream();
-        void stopStream();
+        void startRecording();
+        void stopRecording();
         bool isRecording() const;
+        bool isRetryingToRecord() const;
 
         void setRecordASAP(bool status);
         bool isRecordASAP() const;
@@ -29,10 +30,11 @@ class Streamer : public QObject
         const QImage& getThumbnail() const;
 
     signals:
-        void startStream_sig();
+        void startRecordingWorker();
 
-        void availabilityChanged(bool available);
+        void statusChanged(bool available);
         void recordingChanged(bool status);
+        void retryingToRecordChanged(bool status);
         void thumbnailChanged(const QImage& image);
 
     private slots:
@@ -57,8 +59,10 @@ class Streamer : public QObject
 
         bool m_online;
         bool m_recording;
-        bool m_recordingStoppedByUser;
         bool m_recordASAP;
+
+        bool m_recordingStoppedByUser;
+        bool m_retryingToRecord;
 
         StreamRecorder* m_streamRecorder;
         QThread* m_thread;

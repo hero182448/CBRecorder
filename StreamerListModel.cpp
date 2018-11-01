@@ -119,20 +119,22 @@ void StreamerListModel::propendItem(Streamer* streamer)
 {
     beginInsertRows(QModelIndex(), 0, 0);
     StreamerListItemForm* item = new StreamerListItemForm(streamer, m_rootItem);
-    QObject::connect(item, SIGNAL(itemUpdated()), SIGNAL(itemUpdated()));
+    QObject::connect(item, &StreamerListItemForm::itemUpdated, this, &StreamerListModel::itemUpdated);
     m_rootItem->prependChild(item);
     endInsertRows();
+
+    QObject::connect(streamer, &Streamer::destroyed, this, &StreamerListModel::onStreamerDestroyed);
 }
 
 void StreamerListModel::appendItem(Streamer* streamer)
 {
     beginInsertRows(QModelIndex(), m_rootItem->rowCount(), m_rootItem->rowCount());
     StreamerListItemForm* item = new StreamerListItemForm(streamer, m_rootItem);
-    QObject::connect(item, SIGNAL(itemUpdated()), SIGNAL(itemUpdated()));
+    QObject::connect(item, &StreamerListItemForm::itemUpdated, this, &StreamerListModel::itemUpdated);
     m_rootItem->appendChild(item);
     endInsertRows();
 
-    QObject::connect(streamer, SIGNAL(destroyed(QObject*)), SLOT(onStreamerDestroyed(QObject*)));
+    QObject::connect(streamer, &Streamer::destroyed, this, &StreamerListModel::onStreamerDestroyed);
 }
 
 void StreamerListModel::insertItemAt(Streamer* streamer, int row)
@@ -141,9 +143,11 @@ void StreamerListModel::insertItemAt(Streamer* streamer, int row)
     {
         beginInsertRows(QModelIndex(), row, row);
         StreamerListItemForm* item = new StreamerListItemForm(streamer, m_rootItem);
-        QObject::connect(item, SIGNAL(itemUpdated()), SIGNAL(itemUpdated()));
+        QObject::connect(item, &StreamerListItemForm::itemUpdated, this, &StreamerListModel::itemUpdated);
         m_rootItem->insertChildAt(item, row);
         endInsertRows();
+
+        QObject::connect(streamer, &Streamer::destroyed, this, &StreamerListModel::onStreamerDestroyed);
     }
 }
 

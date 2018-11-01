@@ -6,6 +6,16 @@ HttpRequestWorker::HttpRequestWorker()
     connect(m_manager, SIGNAL(finished(QNetworkReply*)), this, SLOT(onRequestFinished(QNetworkReply*)));
 }
 
+HttpRequestWorker::~HttpRequestWorker()
+{
+    qDebug() << Q_FUNC_INFO << "called";
+    if(m_manager)
+    {
+        m_manager->deleteLater();
+        m_manager = nullptr;
+    }
+}
+
 QString HttpRequestWorker::encodeAttribute(QString attribute, QString input)
 {
     bool utfEncoding = false;
@@ -236,7 +246,7 @@ QByteArray HttpRequestWorker::getResponse() const
     return m_response;
 }
 
-QImage HttpRequestWorker::getImage() const
+QImage HttpRequestWorker::getThumbnail() const
 {
     return QImage::fromData(m_response);
 }
